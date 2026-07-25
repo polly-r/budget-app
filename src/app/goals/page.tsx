@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { differenceInDays } from "date-fns";
 
-const ICONS = ["🎯","✈️","🏠","💻","🚗","💍","🎓","🏖️","💊","📱","🛡️","🎸"];
+const ICONS = ["🎯","✈️","🏠","💻","🚗","💍","🎓","🏖️","💊","📱","🛡️","🎸","💰","🏦","🌿","🎁"];
 const COLORS = ["#7c6af7","#22c55e","#3b82f6","#f59e0b","#ef4444","#ec4899","#06b6d4","#8b5cf6","#10b981","#f97316"];
 const EMPTY = { name: "", targetAmount: "", savedAmount: "", targetDate: "", icon: "🎯", color: "#7c6af7" };
 
@@ -11,9 +11,12 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [topUpModal, setTopUpModal] = useState<any>(null);
+  const [withdrawModal, setWithdrawModal] = useState<any>(null);
   const [form, setForm] = useState<any>(EMPTY);
   const [topUpAmount, setTopUpAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function load() {
@@ -24,15 +27,46 @@ export default function GoalsPage() {
   }
   useEffect(() => { load(); }, []);
 
+  function openCreate() {
+    setEditingId(null);
+    setForm(EMPTY);
+    setShowModal(true);
+  }
+
+  function openEdit(g: any) {
+    setEditingId(g.id);
+    setForm({
+      name: g.name,
+      targetAmount: String(g.targetAmount),
+      savedAmount: String(g.savedAmount),
+      targetDate: new Date(g.targetDate).toISOString().split("T")[0],
+      icon: g.icon,
+      color: g.color,
+    });
+    setShowModal(true);
+  }
+
+  function closeModal() {
+    setShowModal(false);
+    setEditingId(null);
+    setForm(EMPTY);
+  }
+
   async function submit(e: any) {
     e.preventDefault();
     setSaving(true);
-    await fetch("/api/goals", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    setShowModal(false);
-    setForm(EMPTY);
+    if (editingId) {
+      await fetch(`/api/goals/${editingId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+    } else {
+      await fetch("/api/goals", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+    }
+    closeModal();
     setSaving(false);
     load();
   }
@@ -47,6 +81,20 @@ export default function GoalsPage() {
     });
     setTopUpModal(null);
     setTopUpAmount("");
+    setSaving(false);
+    load();
+  }
+
+  async function withdraw(e: any) {
+    e.preventDefault();
+    setSaving(true);
+    const newAmount = Math.max(0, withdrawModal.savedAmount - parseFloat(withdrawAmount));
+    await fetch(`/api/goals/${withdrawModal.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ savedAmount: newAmount }),
+    });
+    setWithdrawModal(null);
+    setWithdrawAmount("");
     setSaving(false);
     load();
   }
@@ -67,7 +115,7 @@ export default function GoalsPage() {
           <h1 className="page-title">Savings Goals</h1>
           <p className="page-sub">{goals.length} goals · {formatCurrency(totalSaved)} saved of {formatCurrency(totalTarget)}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New goal</button>
+        <button className="btn btn-primary" onClick={openCreate}>+ New goal</button>
       </div>
 
       {loading ? (
@@ -76,7 +124,7 @@ export default function GoalsPage() {
         <div style={{ textAlign: "center", padding: "3rem", color: "var(--text2)" }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>
           <p>No goals yet. Create your first savings goal!</p>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => setShowModal(true)}>Create a goal</button>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openCreate}>Create a goal</button>
         </div>
       ) : (
         <div className="data-grid grid-2">
@@ -99,7 +147,10 @@ export default function GoalsPage() {
                       </div>
                     </div>
                   </div>
-                  <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => deleteGoal(g.id)}>✕</button>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => openEdit(g)}>Edit</button>
+                    <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => deleteGoal(g.id)}>✕</button>
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -129,10 +180,18 @@ export default function GoalsPage() {
                   </div>
                 )}
 
-                <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}
-                  onClick={() => { setTopUpModal(g); setTopUpAmount(""); }}>
-                  + Add funds
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: "center" }}
+                    onClick={() => { setTopUpModal(g); setTopUpAmount(""); }}>
+                    + Add funds
+                  </button>
+                  {g.savedAmount > 0 && (
+                    <button className="btn btn-ghost" style={{ padding: "0.55rem 0.9rem" }}
+                      onClick={() => { setWithdrawModal(g); setWithdrawAmount(""); }}>
+                      Withdraw
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -140,11 +199,11 @@ export default function GoalsPage() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
           <div className="modal">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-              <h2 style={{ fontSize: "1rem", fontWeight: 600 }}>New savings goal</h2>
-              <button className="btn btn-ghost" style={{ padding: "4px 8px" }} onClick={() => setShowModal(false)}>✕</button>
+              <h2 style={{ fontSize: "1rem", fontWeight: 600 }}>{editingId ? "Edit goal" : "New savings goal"}</h2>
+              <button className="btn btn-ghost" style={{ padding: "4px 8px" }} onClick={closeModal}>✕</button>
             </div>
             <form onSubmit={submit}>
               <div className="form-group">
@@ -186,8 +245,10 @@ export default function GoalsPage() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: "1rem" }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Create goal"}</button>
+                <button type="button" className="btn btn-ghost" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? "Saving…" : editingId ? "Save changes" : "Create goal"}
+                </button>
               </div>
             </form>
           </div>
@@ -209,6 +270,27 @@ export default function GoalsPage() {
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setTopUpModal(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Add funds"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {withdrawModal && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setWithdrawModal(null)}>
+          <div className="modal" style={{ maxWidth: 360 }}>
+            <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "1.25rem" }}>Withdraw from "{withdrawModal.name}"</h2>
+            <form onSubmit={withdraw}>
+              <div className="form-group">
+                <label className="form-label">Amount to withdraw (ZAR)</label>
+                <input type="number" min="1" max={withdrawModal.savedAmount} required autoFocus value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="500" />
+              </div>
+              <div style={{ fontSize: "0.82rem", color: "var(--text2)", marginBottom: "1rem" }}>
+                Current: {formatCurrency(withdrawModal.savedAmount)} → New: {formatCurrency(Math.max(0, withdrawModal.savedAmount - (parseFloat(withdrawAmount) || 0)))}
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setWithdrawModal(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Withdraw"}</button>
               </div>
             </form>
           </div>

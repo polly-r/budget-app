@@ -2,19 +2,33 @@
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
   ResponsiveContainer, Cell, PieChart, Pie
 } from "recharts";
 
 export default function ReportsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"cashflow" | "networth" | "breakdown">("cashflow");
+  const [view, setView] = useState<"cashflow" | "networth" | "breakdown" | "forecast">("cashflow");
+  const [months, setMonths] = useState(6);
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/reports?months=6").then(r => r.json()).then(d => { setData(d); setLoading(false); });
-  }, []);
+    setLoading(true);
+    fetch(`/api/reports?months=${months}`).then(r => r.json()).then(d => { setData(d); setLoading(false); });
+  }, [months]);
+
+  useEffect(() => {
+    if (view === "forecast" && !forecastData && !forecastLoading) {
+      setForecastLoading(true);
+      fetch("/api/forecast").then(r => r.json()).then(d => {
+        setForecastData(d);
+        setForecastLoading(false);
+      });
+    }
+  }, [view]);
 
   const tooltipStyle = { background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 };
 
@@ -34,9 +48,19 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Reports</h1>
-        <p className="page-sub">6-month financial overview</p>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 className="page-title">Reports</h1>
+          <p className="page-sub">{months}-month financial overview</p>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {([3, 6, 12] as const).map(m => (
+            <button key={m} onClick={() => setMonths(m)} className="btn btn-ghost"
+              style={{ background: months === m ? "var(--bg3)" : undefined, color: months === m ? "var(--text1)" : undefined, padding: "0.4rem 0.85rem", fontSize: "0.8rem" }}>
+              {m}mo
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="data-grid grid-4" style={{ marginBottom: 20 }}>
@@ -53,7 +77,7 @@ export default function ReportsPage() {
           <div className="stat-value" style={{ color: "var(--accent)", fontSize: "1.4rem" }}>{formatCurrency(avgSavings)}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Net worth (cumulative)</div>
+          <div className="stat-label">Cumulative savings</div>
           <div className="stat-value" style={{ fontSize: "1.4rem" }}>{formatCurrency(data.netWorth[data.netWorth.length - 1]?.value || 0)}</div>
         </div>
       </div>
@@ -62,10 +86,10 @@ export default function ReportsPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h3 style={{ fontWeight: 600 }}>Financial charts</h3>
           <div style={{ display: "flex", gap: 4 }}>
-            {(["cashflow", "networth", "breakdown"] as const).map(v => (
+            {(["cashflow", "networth", "breakdown", "forecast"] as const).map(v => (
               <button key={v} onClick={() => setView(v)} className="btn btn-ghost"
                 style={{ background: view === v ? "var(--bg3)" : undefined, color: view === v ? "var(--text1)" : undefined, padding: "0.4rem 0.85rem", fontSize: "0.8rem", textTransform: "capitalize" }}>
-                {v === "networth" ? "Net worth" : v === "breakdown" ? "Breakdown" : "Cash flow"}
+                {v === "networth" ? "Net worth" : v === "breakdown" ? "Breakdown" : v === "forecast" ? "Forecast" : "Cash flow"}
               </button>
             ))}
           </div>
@@ -99,9 +123,58 @@ export default function ReportsPage() {
               <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--text2)" }} />
               <YAxis tick={{ fontSize: 11, fill: "var(--text2)" }} tickFormatter={v => `R${(v/1000).toFixed(0)}k`} />
               <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => formatCurrency(v)} />
-              <Area type="monotone" dataKey="value" name="Net worth" stroke="#7c6af7" strokeWidth={2} fill="url(#nwGrad)" />
+              <Area type="monotone" dataKey="value" name="Cumulative savings" stroke="#7c6af7" strokeWidth={2} fill="url(#nwGrad)" />
             </AreaChart>
           </ResponsiveContainer>
+        )}
+
+        {view === "forecast" && (
+          forecastLoading || !forecastData ? (
+            <div className="skeleton" style={{ height: 300, borderRadius: 8 }} />
+          ) : (
+            <div>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={forecastData.points} margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fcGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#7c6af7" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#7c6af7" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="label"
+                    ticks={forecastData.points.filter((p: any) => p.label).map((p: any) => p.label)}
+                    tick={{ fontSize: 11, fill: "var(--text2)" }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--text2)" }} tickFormatter={v => `R${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: any) => [formatCurrency(v), "Projected balance"]}
+                    labelFormatter={(l: any) => l || ""}
+                  />
+                  <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.6} />
+                  <ReferenceLine x="Today" stroke="var(--text2)" strokeDasharray="3 3" strokeOpacity={0.7} />
+                  <Area
+                    type="monotone"
+                    dataKey="balance"
+                    stroke="#7c6af7"
+                    strokeWidth={2}
+                    fill="url(#fcGrad)"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0, fill: "#7c6af7" }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div style={{
+                marginTop: 14, padding: "0.65rem 0.9rem",
+                background: "var(--bg3)", borderRadius: 8,
+                fontSize: "0.75rem", color: "var(--text2)", lineHeight: 1.5,
+              }}>
+                ⓘ {forecastData.assumptionText}
+              </div>
+            </div>
+          )
         )}
 
         {view === "breakdown" && (

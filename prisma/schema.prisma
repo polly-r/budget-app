@@ -13,9 +13,15 @@ model Category {
   icon         String
   color        String
   type         String
-  transactions Transaction[]
-  budgets      Budget[]
-  createdAt    DateTime      @default(now())
+  archived         Boolean          @default(false)
+  parentId         String?
+  parent           Category?        @relation("SubCategory", fields: [parentId], references: [id])
+  children         Category[]       @relation("SubCategory")
+  transactions     Transaction[]
+  budgets          Budget[]
+  merchantMemories MerchantMemory[]
+  recurringRules   RecurringRule[]
+  createdAt        DateTime         @default(now())
 }
 
 model Transaction {
@@ -27,7 +33,18 @@ model Transaction {
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id])
   recurring   Boolean  @default(false)
+  autoTagged  Boolean  @default(false)
+  confidence  Float?
   createdAt   DateTime @default(now())
+}
+
+model MerchantMemory {
+  id         String   @id @default(cuid())
+  normalised String   @unique
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  hitCount   Int      @default(1)
+  updatedAt  DateTime @updatedAt
 }
 
 model Budget {
@@ -52,4 +69,29 @@ model Goal {
   icon         String
   color        String
   createdAt    DateTime @default(now())
+}
+
+model RecurringRule {
+  id          String               @id @default(cuid())
+  description String
+  amount      Float
+  type        String
+  categoryId  String
+  category    Category             @relation(fields: [categoryId], references: [id])
+  dayOfMonth  Int
+  active      Boolean              @default(true)
+  generations RecurringGeneration[]
+  createdAt   DateTime             @default(now())
+}
+
+model RecurringGeneration {
+  id            String        @id @default(cuid())
+  ruleId        String
+  rule          RecurringRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  month         Int
+  year          Int
+  transactionId String?
+  createdAt     DateTime      @default(now())
+
+  @@unique([ruleId, month, year])
 }

@@ -20,7 +20,9 @@ export async function GET() {
   const prevIncome = prevTxns.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const prevExpenses = prevTxns.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
 
-  const recentTransactions = currentTxns.slice(0, 8);
+  const recentTransactions = [...currentTxns]
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, 8);
 
   const budgetsWithSpend = budgets.map((b) => {
     const spent = currentTxns

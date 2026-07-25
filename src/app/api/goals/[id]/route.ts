@@ -7,8 +7,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     where: { id: params.id },
     data: {
       ...(body.savedAmount !== undefined && { savedAmount: parseFloat(body.savedAmount) }),
-      ...(body.name && { name: body.name }),
+      ...(body.name !== undefined && { name: body.name }),
       ...(body.targetAmount !== undefined && { targetAmount: parseFloat(body.targetAmount) }),
+      ...(body.targetDate !== undefined && { targetDate: new Date(body.targetDate) }),
+      ...(body.icon !== undefined && { icon: body.icon }),
+      ...(body.color !== undefined && { color: body.color }),
     },
   });
   return NextResponse.json(goal);

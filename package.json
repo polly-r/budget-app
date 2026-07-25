@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate && prisma db push && tsx prisma/seed.ts && next dev",
+    "dev": "prisma generate && prisma db push && tsx prisma/seed.ts && tsx scripts/backup.ts && next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "backup": "tsx scripts/backup.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts"
   },
   "dependencies": {

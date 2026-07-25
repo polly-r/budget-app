@@ -18,6 +18,12 @@ prisma/dev.db-journal
 .DS_Store
 Thumbs.db
 
+# Backups (contain personal financial data — never commit)
+backups/
+
+# ML classifier model (trained on personal data)
+prisma/classifier-model.json
+
 # Logs
 *.log
 npm-debug.log*

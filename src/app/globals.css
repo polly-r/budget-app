@@ -53,7 +53,7 @@ input, select, textarea { font-family: var(--font); }
 
 .card-lg { padding: 1.5rem; border-radius: var(--radius-lg); }
 
-input[type="text"], input[type="number"], input[type="date"], select, textarea {
+input[type="text"], input[type="number"], input[type="date"], input[type="password"], select, textarea {
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
